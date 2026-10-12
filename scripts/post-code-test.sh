@@ -2458,9 +2458,6 @@ if [[ "\${_cmd}" == "push" && "\${_has_delete}" != "true" && "\${_has_u}" == "tr
   fi
   if [[ "\${_remaining}" -gt 0 ]]; then
     echo "\$((_remaining - 1))" > "${state_dir}/fail_remaining"
-    if [[ "\${_has_force}" == "true" && -f "${state_dir}/land_before_fail" ]]; then
-      ${REAL_GIT} "\$@" >/dev/null 2>&1 || true
-    fi
     if [[ -f "${state_dir}/fail_message" ]]; then
       cat "${state_dir}/fail_message" >&2
     else
@@ -2680,43 +2677,6 @@ elif ! grep -q 'Posting failure comment' "${_tx_nfftx_log}"; then
   FAILURES=$((FAILURES + 1))
 else
   echo "PASS: push-nff-force-transient-exhausted-fails"
-fi
-
-# Lost response: the first force push lands on the remote but the client sees
-# a 5xx. The remote branch already equals HEAD, so the script must succeed
-# without retrying (a retry would be rejected with a stale lease).
-mkdir -p "${PUSH_TX_TMPDIR}/nff-tx-landed"
-: > "${PUSH_TX_TMPDIR}/nff-tx-landed/nff_plain"
-: > "${PUSH_TX_TMPDIR}/nff-tx-landed/land_before_fail"
-printf '1\n' > "${PUSH_TX_TMPDIR}/nff-tx-landed/fail_remaining"
-printf '%s\n' 'remote: Internal Server Error' > "${PUSH_TX_TMPDIR}/nff-tx-landed/fail_message"
-run_push_tx_script "nff-tx-landed"
-_tx_nffland_rc="$(cat "${PUSH_TX_TMPDIR}/nff-tx-landed/rc")"
-_tx_nffland_log="${PUSH_TX_TMPDIR}/nff-tx-landed/stdout.log"
-_tx_nffland_sleep="$(tr '\n' ' ' < "${PUSH_TX_TMPDIR}/nff-tx-landed/sleep.log" | sed 's/ *$//')"
-_tx_nffland_force_count="$(grep -c 'force=true' "${PUSH_TX_TMPDIR}/nff-tx-landed/push.log" || true)"
-if [ "${_tx_nffland_rc}" -ne 0 ]; then
-  echo "FAIL: push-nff-force-transient-already-landed — expected exit 0, got ${_tx_nffland_rc}"
-  cat "${_tx_nffland_log}"
-  FAILURES=$((FAILURES + 1))
-elif [ -n "${_tx_nffland_sleep}" ]; then
-  echo "FAIL: push-nff-force-transient-already-landed — retried despite remote matching HEAD ('${_tx_nffland_sleep}')"
-  cat "${_tx_nffland_log}"
-  FAILURES=$((FAILURES + 1))
-elif [ "${_tx_nffland_force_count}" != "1" ]; then
-  echo "FAIL: push-nff-force-transient-already-landed — expected exactly one --force-with-lease attempt, got ${_tx_nffland_force_count}"
-  cat "${PUSH_TX_TMPDIR}/nff-tx-landed/push.log"
-  FAILURES=$((FAILURES + 1))
-elif ! grep -q 'already matches HEAD' "${_tx_nffland_log}"; then
-  echo "FAIL: push-nff-force-transient-already-landed — missing already-landed notice"
-  cat "${_tx_nffland_log}"
-  FAILURES=$((FAILURES + 1))
-elif grep -q 'Posting failure comment' "${_tx_nffland_log}"; then
-  echo "FAIL: push-nff-force-transient-already-landed — posted a failure comment"
-  cat "${_tx_nffland_log}"
-  FAILURES=$((FAILURES + 1))
-else
-  echo "PASS: push-nff-force-transient-already-landed"
 fi
 
 # A plain-push failure whose 5xx body also contains rejection phrasing

@@ -82,18 +82,6 @@ The `issue-labels` skill may also apply contextual labels (e.g., `area/api`,
 `priority/high`) but these are informational — they do not control agent
 behavior.
 
-### Stacked and cherry-picked PRs
-
-When the PR author declares another open PR in the same repository as a
-dependency ("depends on #N", "stacked on #N") and the PR's leading commits
-are that PR's commits (same SHAs, or cherry-picks with identical patches),
-the review covers only the PR's own commits. Protected-path and PR-body
-checks still cover the whole PR. Scoping changes the review evidence only:
-it does not impose merge ordering or prevent an approval under the normal
-review criteria. The review body identifies the excluded matching commits
-and their dependency PR. If the commits cannot be matched, the full diff is
-reviewed.
-
 ## Configuration
 
 ### Skill: `issue-labels`
@@ -149,6 +137,18 @@ fails closed when `CI_SERVER_HOST` is not set.
 ## How the agent works
 
 The review agent follows the same pre-script / sandbox / post-script pipeline as the other agents.
+
+### Stacked and cherry-picked PRs
+
+When the PR author declares another open PR in the same repository as a
+dependency ("depends on #N", "stacked on #N") and the PR's leading commits
+are that PR's commits (same SHAs, or cherry-picks with identical patches),
+the review covers only the PR's own commits. Protected-path and PR-body
+checks still cover the whole PR. Scoping changes the review evidence only:
+it does not impose merge ordering or prevent an approval under the normal
+review criteria. The review body identifies the excluded matching commits
+and their dependency PR. If the commits cannot be matched, the full diff is
+reviewed.
 
 1. **Pre-script** validates inputs and fetches PR metadata.
 2. **Sandbox** — the agent runs the `pr-review` orchestrator skill. The orchestrator runs a security-triage pre-pass for large PRs, then dispatches the specialized dimension sub-agents in parallel (plus the risk-assessment sub-agent when enabled), each covering a distinct review dimension (correctness, security, intent & coherence, style & conventions, docs currency, and optionally cross-repo contracts). Sub-agents run concurrently and return structured findings. The orchestrator collects, deduplicates, and synthesizes findings across dimensions, runs PR-level checks (scope authorization, protected paths), and produces a structured JSON review result. The agent cannot push files, edit code, or push — it is strictly read-only.

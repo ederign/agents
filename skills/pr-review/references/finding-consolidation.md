@@ -17,7 +17,8 @@ remediation ("link an issue") split across two findings.
    and one or more `missing-authorization` findings whose premise is
    also the absence of a linked issue or authorizing decision, merge
    each such `missing-authorization` finding into the single
-   `protected-path` finding:
+   `protected-path` finding, except one that carries an open prior
+   `id` (see step 2):
    - Keep `category: "protected-path"`, its file anchor, and the
      higher severity (the protected-path rule's **high**).
    - Fold any extra context from the authorization finding into the
@@ -35,6 +36,12 @@ remediation ("link an issue") split across two findings.
      (`scope-exceeded`, `unauthorized-change`, `scope-creep`).
    - It flags unauthorized changes outside the protected paths that
      linking an authorizing issue would not resolve.
+   - It carries an open prior-finding `id` (status absent, `open`, or
+     `reclassified` in `prior-review.txt`; see `references/re-review.md`).
+     The post-script does not carry `protected-path` ids in the
+     prior-finding ledger, so removing the finding would leave its id open
+     with no visible finding. Leave it as a separate finding with its id,
+     and answer it with the usual `dispositions` entry.
 
 3. Do not consolidate when there is no `protected-path` finding (the
    `missing-authorization` finding stays as reported), or when the

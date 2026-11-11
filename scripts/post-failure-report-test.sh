@@ -391,6 +391,41 @@ run_push_token_redaction_test "sanitize-redacts-literal-push-token-backslash" \
   $'tok\\back' \
   $'push failed: tok\\back invalid'
 
+# A PATH-shadowed tool must not receive a token during literal redaction.
+# Use a synthetic token, and verify the shadow is selected before testing.
+run_redaction_subprocess_test() {
+  local test_dir real_awk actual
+  test_dir="$(mktemp -d)"
+  real_awk="$(command -v awk)"
+  cat > "${test_dir}/awk" <<EOF
+#!/usr/bin/env bash
+printf 'called\n' >> "${test_dir}/calls"
+if [ -n "\${REDACT_LITERAL_TOKEN:-}" ]; then
+  printf 'exposed\n' >> "${test_dir}/exposure"
+fi
+exec "${real_awk}" "\$@"
+EOF
+  chmod +x "${test_dir}/awk"
+  PATH="${test_dir}:${PATH}" awk 'BEGIN { exit 0 }'
+  if [ ! -s "${test_dir}/calls" ]; then
+    echo "FAIL: literal-redaction-no-subprocess — shadow fixture not active"
+    FAILURES=$((FAILURES + 1))
+  else
+    rm "${test_dir}/calls"
+    actual="$(PATH="${test_dir}:${PATH}" _redact_literal_token \
+      'before synthetic*token? and synthetic*token? after' 'synthetic*token?')"
+    if [ "${actual}" != 'before [REDACTED] and [REDACTED] after' ] \
+       || [ -e "${test_dir}/calls" ] || [ -e "${test_dir}/exposure" ]; then
+      echo "FAIL: literal-redaction-no-subprocess — wrong output or external awk invoked"
+      FAILURES=$((FAILURES + 1))
+    else
+      echo "PASS: literal-redaction-no-subprocess"
+    fi
+  fi
+  rm -rf "${test_dir}"
+}
+run_redaction_subprocess_test
+
 run_report_post_failure_test() {
   local test_name="$1"
   local mock_bin="$2"
